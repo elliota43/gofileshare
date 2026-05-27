@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const ServerAddr = "localhost:8080"
+const ServerAddr = "16.59.53.129:8080"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -25,29 +25,13 @@ func main() {
 	}
 	defer conn.Close()
 
-	reader := bufio.NewReader(conn)
+	switch mode {
+	case "host":
+		handleHost(conn)
+	case "join":
+		handleJoin(conn)
 
-	if mode == "host" {
-		conn.Write([]byte("HOST\n"))
-
-		code, _ := reader.ReadString('\n')
-		fmt.Printf("Hosting! Tell your peer to run: go run main.go join %s", code)
-	} else if mode == "join" {
-		if len(os.Args) < 3 {
-			log.Fatal("Please provide a code. Example: go run main.go join 1234")
-		}
-
-		code := os.Args[2]
-
-		conn.Write([]byte(fmt.Sprintf("JOIN %s\n", code)))
-
-		resp, _ := reader.ReadString('\n')
-		if strings.HasPrefix(resp, "ERROR") {
-			log.Fatalf("Server rejected join: %s", resp)
-		}
-
-		fmt.Println("Successfully joined!")
-	} else {
+	default:
 		log.Fatal("Unknown mode. Use 'host' or 'join'.")
 	}
 
@@ -55,4 +39,32 @@ func main() {
 		io.Copy(os.Stdout, conn)
 	}()
 	io.Copy(conn, os.Stdin)
+}
+
+func handleHost(conn net.Conn) {
+	reader := bufio.NewReader(conn)
+
+	conn.Write([]byte("HOST\n"))
+
+	code, _ := reader.ReadString('\n')
+	fmt.Printf("Hosting! Tell your peer to run: %s join %s", os.Args[0], code)
+}
+
+func handleJoin(conn net.Conn) {
+
+	if len(os.Args) < 3 {
+		log.Fatal("Please provide a code. Example: %s join 1234", os.Args[0])
+	}
+
+	reader := bufio.NewReader(conn)
+	code := os.Args[2]
+
+	conn.Write([]byte(fmt.Sprintf("JOIN %s\n", code)))
+
+	resp, _ := reader.ReadString('\n')
+	if strings.HasPrefix(resp, "ERROR") {
+		log.Fatalf("Server rejected join: %s", resp)
+	}
+
+	fmt.Println("Successfully joined!")
 }
